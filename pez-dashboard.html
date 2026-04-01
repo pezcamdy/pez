@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PEZ Collection Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f0ede8;
+    --border: rgba(0,0,0,0.10);
+    --border-strong: rgba(0,0,0,0.18);
+    --text: #1a1917;
+    --text-muted: #6b6860;
+    --text-faint: #9e9b94;
+    --accent: #d63a2f;
+    --accent2: #2b7de9;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.05);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 12px; }
+
+  .logo {
+    width: 36px; height: 36px; background: var(--accent);
+    border-radius: 8px; display: flex; align-items: center;
+    justify-content: center; color: white; font-size: 18px; font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+  .subtitle { font-size: 13px; color: var(--text-muted); margin-top: 1px; }
+
+  .header-right { display: flex; align-items: center; gap: 10px; }
+
+  .sheet-input-wrap {
+    display: flex; gap: 8px; align-items: center;
+  }
+
+  .sheet-input-wrap input {
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 7px 12px;
+    font-size: 13px;
+    width: 320px;
+    background: var(--surface2);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .sheet-input-wrap input:focus { border-color: var(--accent2); background: var(--surface); }
+
+  button {
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 7px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    background: var(--surface);
+    color: var(--text);
+  }
+  button:hover { background: var(--surface2); }
+
+  .btn-primary {
+    background: var(--accent2);
+    color: white;
+    border-color: var(--accent2);
+  }
+  .btn-primary:hover { background: #1d6fd4; border-color: #1d6fd4; }
+
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #ccc; flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .status-dot.ok { background: #22c55e; }
+  .status-dot.err { background: var(--accent); }
+  .status-dot.loading { background: #f59e0b; animation: pulse 1s infinite; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .status-text { font-size: 12px; color: var(--text-muted); }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 28px 24px 60px; }
+
+  #setup-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 40px;
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  #setup-banner h2 { font-size: 20px; font-weight: 600; margin-bottom: 10px; }
+  #setup-banner p { font-size: 14px; color: var(--text-muted); line-height: 1.6; max-width: 520px; margin: 0 auto 20px; }
+  .steps { text-align: left; max-width: 480px; margin: 0 auto 24px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; font-size: 14px; line-height: 1.5; }
+  .step-num { width: 22px; height: 22px; border-radius: 50%; background: var(--accent2); color: white; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  code { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 12px; font-family: monospace; }
+
+  .metrics-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+  }
+  .metric-label { font-size: 12px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .metric-value { font-size: 28px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+  .metric-sub { font-size: 12px; color: var(--text-faint); margin-top: 5px; }
+
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+  .chart-card.full { grid-column: 1 / -1; }
+  .chart-card.three { grid-column: auto; }
+
+  .charts-row-3 {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 14px;
+  }
+
+  .chart-wrap { position: relative; width: 100%; }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 8px 14px;
+    margin-top: 10px; font-size: 12px; color: var(--text-muted);
+  }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+
+  .bar-list { display: flex; flex-direction: column; gap: 8px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+  .bar-label { width: 120px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; text-align: right; }
+  .bar-track { flex: 1; background: var(--surface2); border-radius: 4px; height: 14px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s cubic-bezier(.4,0,.2,1); }
+  .bar-count { width: 38px; text-align: right; color: var(--text-faint); font-size: 11.5px; flex-shrink: 0; }
+
+  #error-msg {
+    background: #fff0ef;
+    border: 1px solid #fca5a5;
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    font-size: 13px;
+    color: #b91c1c;
+    margin-bottom: 18px;
+    display: none;
+  }
+
+  #dashboard { display: none; }
+
+  .last-updated {
+    font-size: 12px;
+    color: var(--text-faint);
+    text-align: right;
+    margin-top: -6px;
+    margin-bottom: 16px;
+  }
+
+  footer {
+    text-align: center;
+    padding: 24px;
+    font-size: 12px;
+    color: var(--text-faint);
+    border-top: 1px solid var(--border);
+    margin-top: 20px;
+  }
+
+  @media (max-width: 768px) {
+    header { flex-direction: column; gap: 12px; align-items: flex-start; padding: 14px 16px; }
+    .header-right { flex-direction: column; align-items: flex-start; width: 100%; }
+    .sheet-input-wrap { flex-direction: column; width: 100%; }
+    .sheet-input-wrap input { width: 100%; }
+    main { padding: 16px 12px 40px; }
+    .metrics-row { grid-template-columns: repeat(2, 1fr); }
+    .charts-row, .charts-row-3 { grid-template-columns: 1fr; }
+    .chart-card.full { grid-column: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo">P</div>
+    <div>
+      <h1>PEZ Collection Dashboard</h1>
+      <div class="subtitle">Live from Google Sheets</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div style="display:flex;align-items:center;gap:6px;">
+      <div class="status-dot" id="statusDot"></div>
+      <span class="status-text" id="statusText">Not connected</span>
+    </div>
+    <div class="sheet-input-wrap">
+      <input type="text" id="sheetUrl" placeholder="Paste your Google Sheet URL here…" />
+      <button class="btn-primary" onclick="loadSheet()">Load</button>
+      <button onclick="refresh()">Refresh</button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <div id="error-msg"></div>
+
+  <div id="setup-banner">
+    <h2>Connect your PEZ collection spreadsheet</h2>
+    <p>Paste your Google Sheet URL above and click Load. The dashboard will read your data live — any updates to your sheet will appear when you click Refresh.</p>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div>Open your PEZ spreadsheet in Google Sheets</div></div>
+      <div class="step"><div class="step-num">2</div><div>Click <strong>File → Share → Publish to web</strong>. Under "Link", choose the sheet tab and select <code>Comma-separated values (.csv)</code>, then click <strong>Publish</strong>.</div></div>
+      <div class="step"><div class="step-num">3</div><div>Copy the URL from the address bar (the regular sheet URL is fine too) and paste it above, then click <strong>Load</strong>.</div></div>
+    </div>
+    <p style="font-size:12px;color:var(--text-faint);">Your sheet must be set to "Anyone with the link can view" or published to the web. No data is sent to any server — everything runs in your browser.</p>
+  </div>
+
+  <div id="dashboard">
+    <div class="last-updated" id="lastUpdated"></div>
+
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="metric-label">Total Dispensers</div>
+        <div class="metric-value" id="mTotal">—</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Pop PEZ</div>
+        <div class="metric-value" id="mPop">—</div>
+        <div class="metric-sub" id="mPopPct"></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">With Feet</div>
+        <div class="metric-value" id="mFeet">—</div>
+        <div class="metric-sub" id="mFeetPct"></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Unique Collections</div>
+        <div class="metric-value" id="mCollections">—</div>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="card-title">Dispensers by theme</div>
+        <div class="bar-list" id="themeBars"></div>
+      </div>
+      <div class="chart-card">
+        <div class="card-title">Country of manufacture</div>
+        <div class="chart-wrap" style="height:220px;"><canvas id="countryChart"></canvas></div>
+        <div class="legend" id="countryLegend"></div>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card full">
+        <div class="card-title">Collection growth — dispensers by year introduced</div>
+        <div class="chart-wrap" style="height:200px;"><canvas id="yearChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="charts-row-3">
+      <div class="chart-card">
+        <div class="card-title">Top 10 collections</div>
+        <div class="bar-list" id="collBars"></div>
+      </div>
+      <div class="chart-card">
+        <div class="card-title">Top stem colors</div>
+        <div class="chart-wrap" style="height:240px;"><canvas id="colorChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="card-title">By decade introduced</div>
+        <div class="chart-wrap" style="height:240px;"><canvas id="decadeChart"></canvas></div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer>PEZ Collection Dashboard · Data reads live from your Google Sheet · Nothing is stored or transmitted</footer>
+
+<script>
+let charts = {};
+const THEME_COLORS = ['#2b7de9','#1d9e75','#d63a2f','#7f77dd','#ba7517','#d4537e','#3b6d11','#e24b4a','#5dcaa5','#639922','#afa9ec','#63b3ed','#ef9f27','#888780'];
+const COLOR_HEX = {
+  'Blue':'#2b7de9','Red':'#e24b4a','Green':'#1d9e75','Pink':'#d4537e',
+  'Yellow':'#f59e0b','Black':'#333','Orange':'#d85a30','Purple':'#7f77dd',
+  'White':'#c4bfb8','Gray':'#888780','Brown':'#92400e','Gold':'#d97706'
+};
+
+function statusSet(state, msg) {
+  const dot = document.getElementById('statusDot');
+  dot.className = 'status-dot ' + state;
+  document.getElementById('statusText').textContent = msg;
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function clearError() {
+  document.getElementById('error-msg').style.display = 'none';
+}
+
+function extractSheetId(url) {
+  const m = url.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
+  return m ? m[1] : null;
+}
+
+function buildCsvUrl(raw) {
+  raw = raw.trim();
+  // Already a CSV export URL
+  if (raw.includes('output=csv') || raw.includes('.csv')) return raw;
+  // Published URL
+  if (raw.includes('pub?')) {
+    if (!raw.includes('output=csv')) return raw.replace(/output=\w+/, 'output=csv') + (raw.includes('?') ? '&output=csv' : '?output=csv');
+    return raw;
+  }
+  // Regular sheet URL — convert to CSV export
+  const id = extractSheetId(raw);
+  if (id) return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&id=${id}`;
+  return null;
+}
+
+async function loadSheet() {
+  clearError();
+  const raw = document.getElementById('sheetUrl').value.trim();
+  if (!raw) { showError('Please paste a Google Sheet URL first.'); return; }
+  const url = buildCsvUrl(raw);
+  if (!url) { showError('Could not parse that URL. Make sure you paste the full Google Sheets link.'); return; }
+  await fetchAndRender(url);
+  localStorage.setItem('pez_sheet_url', document.getElementById('sheetUrl').value.trim());
+}
+
+async function refresh() {
+  clearError();
+  const raw = document.getElementById('sheetUrl').value.trim();
+  if (!raw) { showError('No sheet loaded yet.'); return; }
+  const url = buildCsvUrl(raw);
+  if (url) await fetchAndRender(url);
+}
+
+async function fetchWithFallback(csvUrl) {
+  // 1. Try direct fetch first (works when served from a web server)
+  try {
+    const res = await fetch(csvUrl, { cache: 'no-cache' });
+    if (res.ok) return await res.text();
+  } catch(e) { /* likely CORS from file://, try proxies */ }
+
+  // 2. Try allorigins proxy
+  try {
+    const proxy1 = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(csvUrl);
+    const res = await fetch(proxy1, { cache: 'no-cache' });
+    if (res.ok) return await res.text();
+  } catch(e) { /* try next */ }
+
+  // 3. Try corsproxy.io
+  try {
+    const proxy2 = 'https://corsproxy.io/?' + encodeURIComponent(csvUrl);
+    const res = await fetch(proxy2, { cache: 'no-cache' });
+    if (res.ok) return await res.text();
+  } catch(e) { /* all failed */ }
+
+  throw new Error('All fetch attempts failed. Check your sheet is published as CSV and your internet connection is active.');
+}
+
+async function fetchAndRender(url) {
+  statusSet('loading', 'Loading…');
+  try {
+    const text = await fetchWithFallback(url);
+    const rows = parseCSV(text);
+    if (rows.length < 2) throw new Error('Sheet appears empty or has no data rows.');
+    render(rows);
+    statusSet('ok', 'Connected · ' + (rows.length - 1).toLocaleString() + ' rows');
+    document.getElementById('lastUpdated').textContent = 'Last loaded: ' + new Date().toLocaleString();
+    document.getElementById('setup-banner').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+  } catch(e) {
+    statusSet('err', 'Error');
+    showError('Could not load the sheet. ' + e.message);
+  }
+}
+
+function parseCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  return lines.map(line => {
+    const cols = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQ = !inQ; }
+      else if (c === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+      else { cur += c; }
+    }
+    cols.push(cur.trim());
+    return cols;
+  });
+}
+
+function counter(arr) {
+  const c = {};
+  arr.forEach(v => { if (v) c[v] = (c[v] || 0) + 1; });
+  return c;
+}
+
+function topN(obj, n) {
+  return Object.entries(obj).sort((a,b) => b[1]-a[1]).slice(0, n);
+}
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function render(rows) {
+  const headers = rows[0].map(h => h.replace(/\r/g,'').trim());
+  const data = rows.slice(1);
+
+  const idx = {};
+  headers.forEach((h,i) => idx[h] = i);
+
+  const get = (row, col) => (row[idx[col]] || '').trim();
+
+  const total = data.length;
+  const popPez = data.filter(r => get(r,'Pop Pez?').toUpperCase() === 'Y').length;
+  const feet = data.filter(r => get(r,'Feet?').toLowerCase() === 'yes').length;
+  const uniqueCollections = new Set(data.map(r => get(r,'Collection')).filter(Boolean)).size;
+
+  document.getElementById('mTotal').textContent = total.toLocaleString();
+  document.getElementById('mPop').textContent = popPez.toLocaleString();
+  document.getElementById('mPopPct').textContent = ((popPez/total)*100).toFixed(1) + '% of collection';
+  document.getElementById('mFeet').textContent = feet.toLocaleString();
+  document.getElementById('mFeetPct').textContent = ((feet/total)*100).toFixed(1) + '% of collection';
+  document.getElementById('mCollections').textContent = uniqueCollections.toLocaleString();
+
+  // Themes bar list
+  const themes = topN(counter(data.map(r => get(r,'Theme'))), 12);
+  const maxTheme = themes[0][1];
+  const themeBarsEl = document.getElementById('themeBars');
+  themeBarsEl.innerHTML = '';
+  themes.forEach(([l,v],i) => {
+    const pct = Math.round(v/maxTheme*100);
+    themeBarsEl.innerHTML += `<div class="bar-row">
+      <div class="bar-label">${l}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${THEME_COLORS[i%THEME_COLORS.length]};"></div></div>
+      <div class="bar-count">${v.toLocaleString()}</div>
+    </div>`;
+  });
+
+  // Country donut
+  const countryCounts = counter(data.map(r => get(r,'Made in...')));
+  const countryEntries = topN(countryCounts, 6);
+  const otherCount = data.length - countryEntries.reduce((s,[,v]) => s+v, 0);
+  if (otherCount > 0) countryEntries.push(['Other', otherCount]);
+  const cColors = ['#2b7de9','#1d9e75','#d63a2f','#7f77dd','#ba7517','#d4537e','#888780'];
+  destroyChart('countryChart');
+  charts.countryChart = new Chart(document.getElementById('countryChart'), {
+    type: 'doughnut',
+    data: { labels: countryEntries.map(e=>e[0]), datasets: [{ data: countryEntries.map(e=>e[1]), backgroundColor: cColors, borderWidth: 2, borderColor: '#ffffff' }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label: ctx=>' '+ctx.label+': '+ctx.raw.toLocaleString() } } } }
+  });
+  const cLeg = document.getElementById('countryLegend');
+  cLeg.innerHTML = '';
+  countryEntries.forEach(([l,v],i) => {
+    const pct = ((v/total)*100).toFixed(1);
+    cLeg.innerHTML += `<span><span class="swatch" style="background:${cColors[i]}"></span>${l} ${pct}%</span>`;
+  });
+
+  // Year chart
+  const yearCounts = counter(data.map(r => get(r,'Year Introduced')).filter(y => y && y !== 'N/A' && !isNaN(y)));
+  const yearsSorted = Object.keys(yearCounts).map(Number).sort((a,b)=>a-b);
+  destroyChart('yearChart');
+  charts.yearChart = new Chart(document.getElementById('yearChart'), {
+    type: 'bar',
+    data: { labels: yearsSorted, datasets: [{ label: 'Dispensers', data: yearsSorted.map(y => yearCounts[y]), backgroundColor: '#2b7de9', borderRadius: 2, borderSkipped: false }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales: { x:{ ticks:{color:'#9e9b94',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:20}, grid:{display:false} },
+                y:{ ticks:{color:'#9e9b94',font:{size:11}}, grid:{color:'rgba(0,0,0,0.05)'} } } }
+  });
+
+  // Collections bar list
+  const colls = topN(counter(data.map(r => get(r,'Collection'))), 10);
+  const maxColl = colls[0][1];
+  const collBarsEl = document.getElementById('collBars');
+  collBarsEl.innerHTML = '';
+  colls.forEach(([l,v]) => {
+    const pct = Math.round(v/maxColl*100);
+    collBarsEl.innerHTML += `<div class="bar-row">
+      <div class="bar-label">${l}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:#2b7de9;"></div></div>
+      <div class="bar-count">${v.toLocaleString()}</div>
+    </div>`;
+  });
+
+  // Stem color chart
+  const colorCounts = counter(data.map(r => {
+    const raw = get(r,'Stem Color');
+    const base = raw.split(' ')[0].split('/')[0];
+    return base.charAt(0).toUpperCase() + base.slice(1).toLowerCase();
+  }));
+  const topColors = topN(colorCounts, 10);
+  const colorBgs = topColors.map(([l]) => COLOR_HEX[l] || '#888780');
+  destroyChart('colorChart');
+  charts.colorChart = new Chart(document.getElementById('colorChart'), {
+    type: 'bar',
+    data: { labels: topColors.map(e=>e[0]), datasets: [{ data: topColors.map(e=>e[1]), backgroundColor: colorBgs, borderRadius: 3, borderSkipped: false }] },
+    options: { responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{legend:{display:false}},
+      scales: { x:{ ticks:{color:'#9e9b94',font:{size:11}}, grid:{color:'rgba(0,0,0,0.05)'} },
+                y:{ ticks:{color:'#9e9b94',font:{size:12}}, grid:{display:false} } } }
+  });
+
+  // Decade chart
+  const decades = {};
+  data.forEach(r => {
+    const y = parseInt(get(r,'Year Introduced'));
+    if (!isNaN(y)) { const d = Math.floor(y/10)*10; decades[d] = (decades[d]||0)+1; }
+  });
+  const decadesSorted = Object.keys(decades).map(Number).sort((a,b)=>a-b);
+  const decadeLabels = decadesSorted.map(d => d + 's');
+  destroyChart('decadeChart');
+  charts.decadeChart = new Chart(document.getElementById('decadeChart'), {
+    type: 'bar',
+    data: { labels: decadeLabels, datasets: [{ data: decadesSorted.map(d=>decades[d]), backgroundColor: '#1d9e75', borderRadius: 4, borderSkipped: false }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales: { x:{ ticks:{color:'#9e9b94',font:{size:12}}, grid:{display:false} },
+                y:{ ticks:{color:'#9e9b94',font:{size:11}}, grid:{color:'rgba(0,0,0,0.05)'} } } }
+  });
+}
+
+const DEFAULT_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRZjZiAiSMjF5nchoaJcYIs45rdzVVVI1WAQL80cQGOqqAyPZiY8bfdXYw6Z9ipprfWurmJi-2VWQTg/pub?gid=0&single=true&output=csv';
+
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('pez_sheet_url') || DEFAULT_URL;
+  document.getElementById('sheetUrl').value = saved;
+  const url = buildCsvUrl(saved);
+  if (url) fetchAndRender(url);
+});
+</script>
+</body>
+</html>
