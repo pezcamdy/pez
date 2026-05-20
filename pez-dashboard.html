@@ -57,22 +57,7 @@
 
   .header-right { display: flex; align-items: center; gap: 10px; }
 
-  .sheet-input-wrap {
-    display: flex; gap: 8px; align-items: center;
-  }
 
-  .sheet-input-wrap input {
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
-    padding: 7px 12px;
-    font-size: 13px;
-    width: 320px;
-    background: var(--surface2);
-    color: var(--text);
-    outline: none;
-    transition: border-color 0.15s;
-  }
-  .sheet-input-wrap input:focus { border-color: var(--accent2); background: var(--surface); }
 
   button {
     border: 1px solid var(--border-strong);
@@ -87,12 +72,6 @@
   }
   button:hover { background: var(--surface2); }
 
-  .btn-primary {
-    background: var(--accent2);
-    color: white;
-    border-color: var(--accent2);
-  }
-  .btn-primary:hover { background: #1d6fd4; border-color: #1d6fd4; }
 
   .status-dot {
     width: 8px; height: 8px; border-radius: 50%;
@@ -109,19 +88,6 @@
 
   main { max-width: 1200px; margin: 0 auto; padding: 28px 24px 60px; }
 
-  #setup-banner {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 40px;
-    text-align: center;
-    margin-bottom: 28px;
-  }
-  #setup-banner h2 { font-size: 20px; font-weight: 600; margin-bottom: 10px; }
-  #setup-banner p { font-size: 14px; color: var(--text-muted); line-height: 1.6; max-width: 520px; margin: 0 auto 20px; }
-  .steps { text-align: left; max-width: 480px; margin: 0 auto 24px; }
-  .step { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; font-size: 14px; line-height: 1.5; }
-  .step-num { width: 22px; height: 22px; border-radius: 50%; background: var(--accent2); color: white; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
   code { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 12px; font-family: monospace; }
 
   .metrics-row {
@@ -202,7 +168,7 @@
     display: none;
   }
 
-  #dashboard { display: none; }
+  #dashboard { display: block; }
 
   .last-updated {
     font-size: 12px;
@@ -248,28 +214,13 @@
       <div class="status-dot" id="statusDot"></div>
       <span class="status-text" id="statusText">Not connected</span>
     </div>
-    <div class="sheet-input-wrap">
-      <input type="text" id="sheetUrl" placeholder="Paste your Google Sheet URL here…" />
-      <button class="btn-primary" onclick="loadSheet()">Load</button>
-      <button onclick="refresh()">Refresh</button>
-    </div>
+    <button onclick="refresh()">↻ Refresh</button>
   </div>
 </header>
 
 <main>
 
   <div id="error-msg"></div>
-
-  <div id="setup-banner">
-    <h2>Connect your PEZ collection spreadsheet</h2>
-    <p>Paste your Google Sheet URL above and click Load. The dashboard will read your data live — any updates to your sheet will appear when you click Refresh.</p>
-    <div class="steps">
-      <div class="step"><div class="step-num">1</div><div>Open your PEZ spreadsheet in Google Sheets</div></div>
-      <div class="step"><div class="step-num">2</div><div>Click <strong>File → Share → Publish to web</strong>. Under "Link", choose the sheet tab and select <code>Comma-separated values (.csv)</code>, then click <strong>Publish</strong>.</div></div>
-      <div class="step"><div class="step-num">3</div><div>Copy the URL from the address bar (the regular sheet URL is fine too) and paste it above, then click <strong>Load</strong>.</div></div>
-    </div>
-    <p style="font-size:12px;color:var(--text-faint);">Your sheet must be set to "Anyone with the link can view" or published to the web. No data is sent to any server — everything runs in your browser.</p>
-  </div>
 
   <div id="dashboard">
     <div class="last-updated" id="lastUpdated"></div>
@@ -378,22 +329,9 @@ function buildCsvUrl(raw) {
   return null;
 }
 
-async function loadSheet() {
-  clearError();
-  const raw = document.getElementById('sheetUrl').value.trim();
-  if (!raw) { showError('Please paste a Google Sheet URL first.'); return; }
-  const url = buildCsvUrl(raw);
-  if (!url) { showError('Could not parse that URL. Make sure you paste the full Google Sheets link.'); return; }
-  await fetchAndRender(url);
-  localStorage.setItem('pez_sheet_url', document.getElementById('sheetUrl').value.trim());
-}
-
 async function refresh() {
   clearError();
-  const raw = document.getElementById('sheetUrl').value.trim();
-  if (!raw) { showError('No sheet loaded yet.'); return; }
-  const url = buildCsvUrl(raw);
-  if (url) await fetchAndRender(url);
+  await fetchAndRender(SHEET_URL);
 }
 
 async function fetchWithFallback(csvUrl) {
@@ -429,8 +367,7 @@ async function fetchAndRender(url) {
     render(rows);
     statusSet('ok', 'Connected · ' + (rows.length - 1).toLocaleString() + ' rows');
     document.getElementById('lastUpdated').textContent = 'Last loaded: ' + new Date().toLocaleString();
-    document.getElementById('setup-banner').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
+    
   } catch(e) {
     statusSet('err', 'Error');
     showError('Could not load the sheet. ' + e.message);
@@ -582,14 +519,9 @@ function render(rows) {
   });
 }
 
-const DEFAULT_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRZjZiAiSMjF5nchoaJcYIs45rdzVVVI1WAQL80cQGOqqAyPZiY8bfdXYw6Z9ipprfWurmJi-2VWQTg/pub?gid=0&single=true&output=csv';
+const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRZjZiAiSMjF5nchoaJcYIs45rdzVVVI1WAQL80cQGOqqAyPZiY8bfdXYw6Z9ipprfWurmJi-2VWQTg/pub?gid=0&single=true&output=csv';
 
-window.addEventListener('DOMContentLoaded', () => {
-  const saved = localStorage.getItem('pez_sheet_url') || DEFAULT_URL;
-  document.getElementById('sheetUrl').value = saved;
-  const url = buildCsvUrl(saved);
-  if (url) fetchAndRender(url);
-});
+window.addEventListener('DOMContentLoaded', () => fetchAndRender(SHEET_URL));
 </script>
 </body>
 </html>
