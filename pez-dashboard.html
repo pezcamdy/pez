@@ -365,7 +365,7 @@ function renderTotals(rows) {
     const isHighlight = highlights.has(label.trim());
     var cls = 'metric-card' + (isHighlight ? ' metric-highlight' : '');
     var display = isNaN(num) ? val : num.toLocaleString();
-    el.innerHTML += '<div class="' + cls + '"><div class="metric-label"><span style="margin-right:5px">' + icon + '</span>' + label.trim() + '</div><div class="metric-value">' + display + '</div></div>';
+    el.innerHTML += '<div class="' + cls + '"><div class="metric-label">' + label.trim() + '</div><div class="metric-value">' + display + '</div></div>';
   });
   document.getElementById('totals-section').style.display = 'block';
 }
