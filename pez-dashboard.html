@@ -187,6 +187,35 @@
     margin-top: 20px;
   }
 
+
+  .section-header {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+  }
+
+  .totals-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+
+  .metric-highlight {
+    border-color: var(--accent2) !important;
+    background: #f0f6ff !important;
+  }
+
+  .metric-highlight .metric-value {
+    color: var(--accent2);
+  }
+
+  @media (max-width: 768px) {
+    .totals-grid { grid-template-columns: repeat(2, 1fr); }
+  }
   @media (max-width: 768px) {
     header { flex-direction: column; gap: 12px; align-items: flex-start; padding: 14px 16px; }
     .header-right { flex-direction: column; align-items: flex-start; width: 100%; }
@@ -224,6 +253,11 @@
 
   <div id="dashboard">
     <div class="last-updated" id="lastUpdated"></div>
+
+  <div id="totals-section" style="display:none;margin-bottom:22px;">
+    <div class="section-header">Collection Totals</div>
+    <div id="totals-grid" class="totals-grid"></div>
+  </div>
 
     <div class="metrics-row">
       <div class="metric-card">
@@ -331,7 +365,48 @@ function buildCsvUrl(raw) {
 
 async function refresh() {
   clearError();
-  await fetchAndRender(SHEET_URL);
+  await loadAll();
+}
+
+async function loadAll() {
+  await Promise.all([fetchAndRender(SHEET_URL), fetchAndRenderTotals(TOTALS_URL)]);
+}
+
+async function fetchAndRenderTotals(url) {
+  try {
+    const text = await fetchWithFallback(url);
+    const rows = parseCSV(text).filter(r => r.length >= 2 && r[0] && r[1]);
+    renderTotals(rows);
+  } catch(e) {
+    console.warn('Could not load totals sheet:', e.message);
+  }
+}
+
+function renderTotals(rows) {
+  const icons = {
+    'Total Unique Loose PEZ': '🎭',
+    'Total Pop!+PEZ': '🎉',
+    'Total Unique PEZ in Box Sets': '📦',
+    'Total Unique PEZ': '⭐',
+    'Total PEZ in Box Sets': '🗃️',
+    'Total PEZ': '🍬',
+    'Total Plush PEZ': '🧸',
+    'Total Giant PEZ': '🦕',
+    'Total PEZ-aphernalia': '🛍️',
+    'Total PEZ Items': '🏆',
+  };
+  const highlights = new Set(['Total PEZ', 'Total PEZ Items', 'Total Unique PEZ']);
+  const el = document.getElementById('totals-grid');
+  el.innerHTML = '';
+  rows.forEach(([label, val]) => {
+    const num = parseInt(val.replace(/,/g,''));
+    const isHighlight = highlights.has(label.trim());
+    var cls = 'metric-card' + (isHighlight ? ' metric-highlight' : '');
+    var icon = icons[label.trim()] || '📌';
+    var display = isNaN(num) ? val : num.toLocaleString();
+    el.innerHTML += '<div class="' + cls + '"><div class="metric-label"><span style="margin-right:5px">' + icon + '</span>' + label.trim() + '</div><div class="metric-value">' + display + '</div></div>';
+  });
+  document.getElementById('totals-section').style.display = 'block';
 }
 
 async function fetchWithFallback(csvUrl) {
@@ -520,8 +595,9 @@ function render(rows) {
 }
 
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRZjZiAiSMjF5nchoaJcYIs45rdzVVVI1WAQL80cQGOqqAyPZiY8bfdXYw6Z9ipprfWurmJi-2VWQTg/pub?gid=0&single=true&output=csv';
+const TOTALS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRZjZiAiSMjF5nchoaJcYIs45rdzVVVI1WAQL80cQGOqqAyPZiY8bfdXYw6Z9ipprfWurmJi-2VWQTg/pub?gid=593258386&single=true&output=csv';
 
-window.addEventListener('DOMContentLoaded', () => fetchAndRender(SHEET_URL));
+window.addEventListener('DOMContentLoaded', () => loadAll());
 </script>
 </body>
 </html>
